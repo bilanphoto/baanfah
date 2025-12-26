@@ -25,6 +25,19 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999;
         }
+        .preview-img {
+            max-height: 200px;
+            object-fit: contain;
+            margin: 0 auto;
+            border-radius: 0.5rem;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -114,15 +127,21 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-medium mb-1">แนบสลิปโอนเงิน (จำลอง)</label>
-                        <div id="uploadArea" onclick="mockUpload()" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer transition">
-                            <i id="uploadIcon" class="fa-solid fa-cloud-arrow-up text-gray-400 text-2xl mb-2"></i>
-                            <p id="uploadText" class="text-xs text-gray-500">คลิกเพื่อยืนยันการแนบสลิป (Simulated)</p>
+                        <label class="block text-sm font-medium mb-1">แนบสลิปโอนเงิน</label>
+                        <div id="uploadArea" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer transition flex flex-col items-center justify-center">
+                            <div id="uploadPlaceholder">
+                                <i id="uploadIcon" class="fa-solid fa-cloud-arrow-up text-gray-400 text-3xl mb-2"></i>
+                                <p id="uploadText" class="text-xs text-gray-500">คลิกเพื่อเลือกไฟล์รูปภาพสลิป</p>
+                            </div>
+                            <img id="imagePreview" src="" alt="Slip Preview" class="preview-img hidden mt-2 shadow-sm">
+                            <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
                             <input type="hidden" id="hasSlip" value="false">
+                            <input type="hidden" id="imageBase64" value="">
+                            <input type="hidden" id="imageName" value="">
                         </div>
                     </div>
 
-                    <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition transform active:scale-95">
+                    <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md transition transform active:scale-95">
                         <i class="fa-solid fa-paper-plane mr-2"></i> ยืนยันการลงทะเบียน
                     </button>
                     <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-full mt-2 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-lg transition">
@@ -133,8 +152,7 @@
         </div>
 
         <!-- SECTION: Admin Dashboard -->
-        <div id="dashboard-section" class="hidden">
-            
+        <div id="dashboard-section" class="hidden animate-fade-in">
             <!-- Stats Cards -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white p-4 rounded-xl shadow border-l-4 border-emerald-500 flex items-center justify-between">
@@ -196,12 +214,12 @@
     </div>
 
     <script>
-        // --- ส่วนเชื่อมต่อ Google Apps Script ---
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysG2BV8_7-Q4QrEzKcBGqPjw8Yq8DQCzKZRrXqG_J1s6NHPMArmbV_sdYBDSFUZpxoAA/exec';
+        // --- ส่วนเชื่อมต่อ Google Apps Script URL ใหม่ ---
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzSPWwYq-uvvff550REkyyBG9--4EsvW-3qemcsvhpyRld3bb_sS-Ja5SDfUwLcm2-Z4Q/exec';
         
         let allData = [];
 
-        // ฟังก์ชันดึงข้อมูล
+        // ฟังก์ชันดึงข้อมูลจาก Sheet
         async function fetchData() {
             if(!GOOGLE_SCRIPT_URL) return;
             showLoading(true);
@@ -222,11 +240,49 @@
             showLoading(false);
         }
 
-        // ฟังก์ชันส่งข้อมูล
+        // ฟังก์ชันจัดการการเลือกไฟล์รูปภาพ
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // ตรวจสอบขนาดไฟล์ (จำกัดประมาณ 5MB เพื่อความเร็วในการส่ง)
+            if (file.size > 5 * 1024 * 1024) {
+                alert("ไฟล์รูปภาพมีขนาดใหญ่เกินไป (สูงสุด 5MB)");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64String = e.target.result.split(',')[1];
+                document.getElementById('imageBase64').value = base64String;
+                document.getElementById('imageName').value = file.name;
+                document.getElementById('hasSlip').value = "true";
+
+                // แสดงผลรูปภาพที่เลือก (Preview)
+                const preview = document.getElementById('imagePreview');
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                document.getElementById('uploadPlaceholder').classList.add('hidden');
+                document.getElementById('uploadArea').classList.add('border-emerald-500', 'bg-emerald-50');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ฟังก์ชันบันทึกข้อมูลและส่งรูปไปยัง Drive
         async function handleRegister(e) {
             e.preventDefault();
-            showLoading(true);
+            
+            // ตรวจสอบว่าแนบสลิปหรือยัง (เฉพาะกรณีลงทะเบียนใหม่)
             const editId = document.getElementById('editId').value;
+            const hasSlip = document.getElementById('hasSlip').value === 'true';
+            
+            if (!editId && !hasSlip) {
+                alert("กรุณาแนบสลิปโอนเงินก่อนยืนยันการลงทะเบียน");
+                return;
+            }
+
+            showLoading(true);
+            
             const data = {
                 id: editId ? parseFloat(editId) : Date.now(),
                 fullname: document.getElementById('fullname').value,
@@ -234,7 +290,9 @@
                 phone: document.getElementById('phone').value,
                 lineId: document.getElementById('lineId').value,
                 debtStatus: document.getElementById('debtStatus').value,
-                hasSlip: document.getElementById('hasSlip').value === 'true',
+                hasSlip: hasSlip,
+                image: document.getElementById('imageBase64').value, // Base64 ส่งไป Drive
+                imageName: document.getElementById('imageName').value,
                 regisDate: new Date().toLocaleDateString('th-TH'),
                 action: editId ? 'edit' : 'add'
             };
@@ -245,19 +303,21 @@
                     body: JSON.stringify(data),
                     headers: { "Content-Type": "text/plain;charset=utf-8" }
                 });
-                alert(editId ? "แก้ไขข้อมูลสำเร็จ!" : "ลงทะเบียนเรียบร้อยแล้ว!");
+                
+                alert(editId ? "แก้ไขข้อมูลสำเร็จ!" : "ลงทะเบียนและส่งข้อมูลเรียบร้อยแล้ว!");
                 resetForm();
                 await fetchData();
                 switchTab('dashboard');
             } catch (e) {
-                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+                console.error("Submit Error:", e);
+                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
             }
             showLoading(false);
         }
 
-        // ฟังก์ชันลบข้อมูล
+        // ลบข้อมูล
         async function deleteItem(id) {
-            if(!confirm("คุณต้องการลบรายชื่อนี้ใช่หรือไม่?")) return;
+            if(!confirm("คุณต้องการลบรายชื่อนี้ใช่หรือไม่? ข้อมูลจะหายไปถาวร")) return;
             showLoading(true);
             try {
                 await fetch(GOOGLE_SCRIPT_URL, {
@@ -270,7 +330,6 @@
             showLoading(false);
         }
 
-        // แสดงผลตาราง
         function renderTable() {
             const tbody = document.getElementById('dataTable');
             tbody.innerHTML = '';
@@ -287,7 +346,7 @@
                         </td>
                         <td class="p-4 text-xs">
                             <div><i class="fa-solid fa-phone mr-1 opacity-50"></i> ${item.phone}</div>
-                            <div class="text-emerald-600"><i class="fa-brands fa-line mr-1 opacity-50"></i> ${item.lineId}</div>
+                            <div class="text-emerald-600 font-medium"><i class="fa-brands fa-line mr-1 opacity-50"></i> ${item.lineId}</div>
                         </td>
                         <td class="p-4 text-center">
                             <span class="px-2 py-1 rounded text-[10px] font-bold ${getDebtColor(item.debtStatus)}">
@@ -295,11 +354,13 @@
                             </span>
                         </td>
                         <td class="p-4 text-center">
-                            ${item.hasSlip ? '<i class="fa-solid fa-circle-check text-emerald-500 text-lg"></i>' : '<i class="fa-solid fa-circle-xmark text-gray-300 text-lg"></i>'}
+                            ${item.hasSlip ? 
+                                (item.imageUrl ? `<a href="${item.imageUrl}" target="_blank" class="text-emerald-500 hover:text-emerald-700 transition"><i class="fa-solid fa-circle-check text-lg"></i></a>` : `<i class="fa-solid fa-circle-check text-emerald-500 text-lg"></i>`) 
+                                : '<i class="fa-solid fa-circle-xmark text-gray-300 text-lg"></i>'}
                         </td>
                         <td class="p-4 text-center">
-                            <button onclick="editItem(${item.id})" class="text-blue-500 hover:text-blue-700 mx-2"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteItem(${item.id})" class="text-red-400 hover:text-red-600 mx-2"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="editItem(${item.id})" class="text-blue-500 hover:text-blue-700 mx-1 p-1 transition"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteItem(${item.id})" class="text-red-400 hover:text-red-600 mx-1 p-1 transition"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
@@ -334,9 +395,10 @@
             
             document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-save mr-2"></i> บันทึกการแก้ไข';
             document.getElementById('cancelEditBtn').classList.remove('hidden');
+            
             if(item.hasSlip) {
-                document.getElementById('uploadArea').classList.add('border-emerald-500', 'bg-emerald-50');
-                document.getElementById('uploadText').innerHTML = "✅ สลิปเรียบร้อยแล้ว";
+                 document.getElementById('uploadArea').classList.add('border-emerald-500', 'bg-emerald-50');
+                 document.getElementById('uploadText').innerHTML = "✅ ข้อมูลสลิปเดิมมีอยู่ในระบบ";
             }
             switchTab('register');
         }
@@ -346,16 +408,16 @@
             document.getElementById('editId').value = "";
             document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-paper-plane mr-2"></i> ยืนยันการลงทะเบียน';
             document.getElementById('cancelEditBtn').classList.add('hidden');
-            document.getElementById('uploadArea').className = "border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer transition";
-            document.getElementById('uploadText').innerText = "คลิกเพื่อเลือกไฟล์ (Simulated)";
+            
+            // รีเซ็ตการแสดงผลรูปภาพ
+            document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('imagePreview').src = "";
+            document.getElementById('uploadPlaceholder').classList.remove('hidden');
+            document.getElementById('uploadArea').className = "border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer transition flex flex-col items-center justify-center";
             document.getElementById('hasSlip').value = "false";
-        }
-
-        function mockUpload() {
-            document.getElementById('hasSlip').value = "true";
-            document.getElementById('uploadArea').classList.add('border-emerald-500', 'bg-emerald-50');
-            document.getElementById('uploadIcon').classList.replace('text-gray-400', 'text-emerald-500');
-            document.getElementById('uploadText').innerHTML = "<span class='text-emerald-600 font-bold'>✅ ยืนยันสลิปเรียบร้อยแล้ว</span>";
+            document.getElementById('imageBase64').value = "";
+            document.getElementById('imageName').value = "";
+            document.getElementById('fileInput').value = "";
         }
 
         function switchTab(tab) {
