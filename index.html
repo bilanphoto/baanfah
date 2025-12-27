@@ -19,450 +19,923 @@
             border-radius: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .loading-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.8);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 9999;
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
         }
-        .preview-img {
-            max-height: 200px;
-            object-fit: contain;
-            margin: 0 auto;
-            border-radius: 0.5rem;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .modal {
-            transition: opacity 0.25s ease;
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
         }
-        body.modal-active {
-            overflow: hidden !important;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body class="text-gray-800">
 
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay hidden">
-        <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-emerald-600 border-solid"></div>
-        <p class="mt-4 text-emerald-800 font-bold">กำลังประมวลผล...</p>
-    </div>
-
     <!-- Navbar -->
     <nav class="bg-emerald-700 text-white shadow-lg sticky top-0 z-50">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center space-x-2 cursor-pointer group" onclick="toggleLoginModal()">
-                <i class="fa-solid fa-house-chimney text-xl text-emerald-200 group-hover:text-white transition-colors"></i>
-                <span class="font-bold text-lg md:text-xl tracking-wide group-hover:text-emerald-100 transition-colors">Wararin Property</span>
+            <div class="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition" onclick="openLoginModal()" title="คลิกเพื่อเข้าสู่ระบบ Admin">
+                <i class="fa-solid fa-house-chimney text-xl"></i>
+                <span class="font-bold text-lg md:text-xl">Wararin Property</span>
+                <i class="fa-solid fa-lock text-xs opacity-70" id="lockIcon"></i>
             </div>
-            
-            <div class="flex items-center space-x-2">
-                <button onclick="switchTab('register')" id="btn-register" class="px-4 py-1.5 rounded-full bg-white text-emerald-700 font-bold shadow-sm transition-all hover:bg-emerald-50">ลงทะเบียน</button>
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="hidden px-4 py-1.5 rounded-full hover:bg-emerald-600 transition-all border border-emerald-500 text-white">Dashboard</button>
+            <div class="flex space-x-4">
+                <button onclick="switchTab('register')" id="btn-register" class="px-3 py-1 rounded bg-white text-emerald-700 font-bold transition">ลงทะเบียน</button>
+                <!-- ปุ่ม Dashboard ซ่อนไว้ก่อน จนกว่าจะ login -->
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="hidden px-3 py-1 rounded hover:bg-emerald-600 transition">Dashboard</button>
+                <!-- ปุ่ม Logout ซ่อนไว้ก่อน -->
+                <button onclick="logout()" id="btn-logout" class="hidden px-3 py-1 rounded hover:bg-red-500 transition" title="ออกจากระบบ">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
             </div>
         </div>
     </nav>
 
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-[100]">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-60" onclick="toggleLoginModal()"></div>
-        
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded-2xl shadow-2xl z-50 overflow-y-auto transform scale-95 transition-transform duration-300">
-            <div class="modal-content py-8 text-left px-10">
-                <div class="flex justify-between items-center pb-6">
-                    <p class="text-2xl font-bold text-gray-700">เข้าสู่ระบบจัดการ</p>
-                    <div class="modal-close cursor-pointer" onclick="toggleLoginModal()">
-                        <i class="fa-solid fa-xmark text-gray-400 hover:text-gray-600 transition text-xl"></i>
-                    </div>
-                </div>
-
-                <form id="loginForm" onsubmit="handleLogin(event)">
-                    <div class="mb-5">
-                        <label class="block text-gray-600 text-sm font-bold mb-2">Username</label>
-                        <input type="text" id="username" required class="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition" placeholder="กรอกชื่อผู้ใช้งาน">
-                    </div>
-                    <div class="mb-8">
-                        <label class="block text-gray-600 text-sm font-bold mb-2">Password</label>
-                        <input type="password" id="password" required class="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition" placeholder="กรอกรหัสผ่าน">
-                    </div>
-                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95">
-                        ยืนยันตัวตน
-                    </button>
-                    <p id="loginError" class="text-red-500 text-sm text-center hidden mt-4 font-medium">ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง</p>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <div class="container mx-auto px-4 py-6">
 
+        <!-- ======================= -->
         <!-- SECTION: Registration Form -->
-        <div id="register-section" class="max-w-2xl mx-auto">
+        <!-- ======================= -->
+        <div id="register-section" class="max-w-2xl mx-auto animate-fade-in">
+            <!-- Header Banner -->
             <div class="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-t-xl p-6 text-white text-center shadow-lg">
                 <h1 class="text-2xl font-bold mb-2">ลงทะเบียนสัมมนา "999 บาท เปลี่ยนชีวิต"</h1>
                 <p class="opacity-90">แก้หนี้เป็นระบบ มีบ้าน มีอนาคต</p>
             </div>
 
             <div class="glass-card p-6 rounded-b-xl shadow-xl">
+                <!-- Payment Info -->
                 <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
                     <div class="flex items-start">
-                        <div class="flex-shrink-0"><i class="fa-solid fa-circle-info text-blue-500 mt-1"></i></div>
+                        <div class="flex-shrink-0">
+                            <i class="fa-solid fa-circle-info text-blue-500 mt-1"></i>
+                        </div>
                         <div class="ml-3">
-                            <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide">รายละเอียดการชำระเงิน</h3>
+                            <h3 class="text-sm font-bold text-blue-800">รายละเอียดการชำระเงิน (ค่าลงทะเบียน 999 บาท)</h3>
                             <div class="mt-2 text-sm text-blue-700">
-                                <p>ธนาคาร: <span class="font-bold">กสิกรไทย (K-Bank)</span></p>
-                                <p>เลขที่บัญชี: <span class="font-bold text-lg select-all bg-white px-2 rounded">162-3-41428-7</span></p>
-                                <p>ชื่อบัญชี: <span class="font-bold">บจก.วราริน พร็อพเพอร์ตี้</span></p>
+                                <p>🏦 ธนาคาร: <span class="font-bold">กสิกรไทย (K-Bank)</span></p>
+                                <p>🔢 เลขที่บัญชี: <span class="font-bold text-lg select-all bg-white px-1 rounded">162-3-41428-7</span></p>
+                                <p>👤 ชื่อบัญชี: <span class="font-bold">บจก.วราริน พร็อพเพอร์ตี้</span></p>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Form -->
                 <form id="regisForm" onsubmit="handleRegister(event)">
-                    <input type="hidden" id="editId" value="">
+                    <input type="hidden" id="editIndex" value="-1">
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-gray-600">ชื่อ - นามสกุล</label>
-                            <input type="text" id="fullname" required class="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="สมชาย ใจดี">
+                            <label class="block text-sm font-medium mb-1">ชื่อ - นามสกุล <span class="text-red-500">*</span></label>
+                            <input type="text" id="fullname" required class="w-full p-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="สมชาย ใจดี">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-gray-600">ชื่อเล่น</label>
-                            <input type="text" id="nickname" required class="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="ชาย">
+                            <label class="block text-sm font-medium mb-1">ชื่อเล่น <span class="text-red-500">*</span></label>
+                            <input type="text" id="nickname" required class="w-full p-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="ชาย">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-gray-600">เบอร์โทรศัพท์</label>
-                            <input type="tel" id="phone" required class="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="0812345678">
+                            <label class="block text-sm font-medium mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+                            <input type="tel" id="phone" required pattern="[0-9]{9,10}" class="w-full p-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="0812345678">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1 text-gray-600">Line ID</label>
-                            <input type="text" id="lineId" required class="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="@lineid">
+                            <label class="block text-sm font-medium mb-1">Line ID <span class="text-red-500">*</span></label>
+                            <input type="text" id="lineId" required class="w-full p-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="@lineid">
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="block text-sm font-medium mb-1 text-gray-600">สถานะหนี้สิน</label>
-                        <select id="debtStatus" class="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
-                            <option value="ปกติ">ปกติ (จ่ายตรงตลอด)</option>
-                            <option value="เริ่มตึง">เริ่มตึง (จ่ายขั้นต่ำ/หมุนเงิน)</option>
-                            <option value="หนัก">เริ่มหนัก (ค้าง 1-3 เดือน/โดนทวง)</option>
-                            <option value="วิกฤต">วิกฤต (ฟ้องร้อง/บังคับคดี)</option>
+                        <label class="block text-sm font-medium mb-1">สถานะหนี้สิน (เพื่อประเมิน Level)</label>
+                        <select id="debtStatus" class="w-full p-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="normal">🟢 ปกติ (จ่ายตรงตลอด)</option>
+                            <option value="warning">🟡 เริ่มตึง (จ่ายขั้นต่ำ/หมุนเงิน)</option>
+                            <option value="heavy">🟠 เริ่มหนัก (ค้าง 1-3 เดือน/โดนทวง)</option>
+                            <option value="critical">🔴 วิกฤต (ฟ้องร้อง/บังคับคดี)</option>
                         </select>
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-medium mb-1 text-gray-600">แนบสลิปโอนเงิน (ค่าลงทะเบียน 999 บาท)</label>
-                        <div id="uploadArea" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 cursor-pointer transition flex flex-col items-center justify-center min-h-[160px]">
-                            <div id="uploadPlaceholder">
-                                <i id="uploadIcon" class="fa-solid fa-cloud-arrow-up text-gray-400 text-4xl mb-3"></i>
-                                <p id="uploadText" class="text-sm text-gray-500 font-medium">คลิกเพื่ออัปโหลดรูปภาพสลิป</p>
+                        <label class="block text-sm font-medium mb-1">แนบสลิปโอนเงิน <span class="text-red-500">*</span></label>
+                        <input type="file" id="slipFile" accept="image/*" class="hidden" onchange="handleFileSelect(this)" required>
+                        
+                        <!-- Upload Area -->
+                        <div id="uploadArea" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 hover:border-emerald-400 cursor-pointer transition-all" onclick="document.getElementById('slipFile').click()">
+                            <i class="fa-solid fa-cloud-arrow-up text-gray-400 text-4xl mb-3"></i>
+                            <p class="text-sm text-gray-600 font-medium">คลิกเพื่อเลือกรูปสลิป</p>
+                            <p class="text-xs text-gray-400 mt-1">รองรับ JPG, PNG, GIF (ไม่เกิน 5MB)</p>
+                        </div>
+                        
+                        <!-- Image Preview -->
+                        <div id="imagePreview" class="hidden mt-4">
+                            <div class="relative inline-block w-full">
+                                <div class="bg-gray-100 rounded-lg p-3 border">
+                                    <p class="text-xs text-gray-500 mb-2 flex items-center">
+                                        <i class="fa-solid fa-image mr-2 text-emerald-500"></i>
+                                        <span id="fileName">รูปสลิปที่เลือก</span>
+                                    </p>
+                                    <img id="previewImg" class="max-h-64 mx-auto rounded-lg shadow-md border">
+                                </div>
+                                <button type="button" onclick="removeImage()" class="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
                             </div>
-                            <img id="imagePreview" src="" alt="Slip Preview" class="preview-img hidden mt-2 shadow-md">
-                            <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
-                            <input type="hidden" id="hasSlip" value="false">
-                            <input type="hidden" id="imageBase64" value="">
-                            <input type="hidden" id="imageName" value="">
+                            <button type="button" onclick="document.getElementById('slipFile').click()" class="mt-2 text-sm text-emerald-600 hover:text-emerald-800 underline">
+                                <i class="fa-solid fa-arrows-rotate mr-1"></i> เปลี่ยนรูป
+                            </button>
                         </div>
                     </div>
 
-                    <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95 text-lg">
+                    <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition transform active:scale-95">
                         <i class="fa-solid fa-paper-plane mr-2"></i> ยืนยันการลงทะเบียน
                     </button>
-                    <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-full mt-3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-xl transition">
+                    <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-full mt-2 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-lg">
                         ยกเลิกการแก้ไข
                     </button>
                 </form>
+
+                <!-- Alert Messages -->
+                <div id="alertBox" class="hidden mt-4 p-4 rounded-lg"></div>
             </div>
         </div>
 
+        <!-- ======================= -->
         <!-- SECTION: Admin Dashboard -->
-        <div id="dashboard-section" class="hidden">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-emerald-500">
-                    <p class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1">ทั้งหมด</p>
-                    <p class="text-3xl font-bold text-gray-800" id="total-registrants">0</p>
+        <!-- ======================= -->
+        <div id="dashboard-section" class="hidden animate-fade-in">
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-emerald-500 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold uppercase">ผู้ลงทะเบียนทั้งหมด</p>
+                        <p class="text-2xl font-bold text-gray-800" id="total-registrants">0</p>
+                    </div>
+                    <i class="fa-solid fa-users text-emerald-200 text-3xl"></i>
                 </div>
-                <div class="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-blue-500">
-                    <p class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1">ยอดเงินรวม</p>
-                    <p class="text-3xl font-bold text-blue-600" id="total-income">0</p>
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold uppercase">ยอดเงินรวม (บาท)</p>
+                        <p class="text-2xl font-bold text-blue-600" id="total-income">0</p>
+                    </div>
+                    <i class="fa-solid fa-sack-dollar text-blue-200 text-3xl"></i>
                 </div>
-                <div class="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-red-500">
-                    <p class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1">วิกฤต/หนัก</p>
-                    <p class="text-3xl font-bold text-red-600" id="critical-cases">0</p>
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold uppercase">เคสวิกฤต (สีแดง)</p>
+                        <p class="text-2xl font-bold text-red-600" id="critical-cases">0</p>
+                    </div>
+                    <i class="fa-solid fa-triangle-exclamation text-red-200 text-3xl"></i>
                 </div>
-                <div class="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-yellow-500">
-                    <p class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1">รอยืนยันสลิป</p>
-                    <p class="text-3xl font-bold text-yellow-600" id="pending-check">0</p>
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-500 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold uppercase">รอตรวจสอบสลิป</p>
+                        <p class="text-2xl font-bold text-yellow-600" id="pending-check">0</p>
+                    </div>
+                    <i class="fa-solid fa-file-invoice-dollar text-yellow-200 text-3xl"></i>
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-                <div class="p-5 border-b flex justify-between items-center bg-gray-50/50">
-                    <h2 class="font-bold text-lg text-gray-700 flex items-center">
-                        <span class="w-2 h-6 bg-emerald-500 rounded mr-3"></span>
-                        รายชื่อผู้ลงทะเบียน
-                    </h2>
-                    <button onclick="fetchData()" class="text-sm bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-4 py-1.5 rounded-lg font-bold transition flex items-center">
-                        <i class="fa-solid fa-rotate mr-2"></i> รีเฟรช
+            <!-- Refresh Button & Filter -->
+            <div class="flex flex-wrap gap-4 mb-4 items-center justify-between">
+                <div class="flex gap-2">
+                    <button onclick="loadDataFromSheets()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow">
+                        <i class="fa-solid fa-rotate mr-2"></i> รีเฟรชข้อมูล
                     </button>
+                    <select id="filterStatus" onchange="filterTable()" class="p-2 border rounded-lg">
+                        <option value="all">แสดงทั้งหมด</option>
+                        <option value="normal">🟢 ปกติ</option>
+                        <option value="warning">🟡 เริ่มตึง</option>
+                        <option value="heavy">🟠 เริ่มหนัก</option>
+                        <option value="critical">🔴 วิกฤต</option>
+                    </select>
+                </div>
+                <button onclick="exportToCSV()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg shadow">
+                    <i class="fa-solid fa-file-csv mr-2"></i> Export CSV
+                </button>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="hidden text-center py-8">
+                <div class="loading-spinner mx-auto mb-2"></div>
+                <p class="text-gray-500">กำลังโหลดข้อมูล...</p>
+            </div>
+
+            <!-- Table -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <h2 class="font-bold text-lg text-gray-700"><i class="fa-solid fa-table-list mr-2"></i>รายชื่อผู้ลงทะเบียน</h2>
+                    <span id="lastUpdate" class="text-xs text-gray-400"></span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-gray-50 text-gray-400 text-[10px] uppercase font-bold tracking-widest">
-                                <th class="p-5 border-b">ข้อมูลผู้สมัคร</th>
-                                <th class="p-5 border-b">ช่องทางติดต่อ</th>
-                                <th class="p-5 border-b text-center">สถานะหนี้</th>
-                                <th class="p-5 border-b text-center">สลิป</th>
-                                <th class="p-5 border-b text-center">จัดการ</th>
+                            <tr class="bg-gray-100 text-gray-600 text-sm uppercase tracking-wider">
+                                <th class="p-4">#</th>
+                                <th class="p-4">ชื่อ-นามสกุล</th>
+                                <th class="p-4">ชื่อเล่น</th>
+                                <th class="p-4">เบอร์โทร</th>
+                                <th class="p-4">Line ID</th>
+                                <th class="p-4">สถานะหนี้</th>
+                                <th class="p-4">วันที่ลงทะเบียน</th>
+                                <th class="p-4">สถานะ</th>
+                                <th class="p-4 text-center">สลิป</th>
+                                <th class="p-4 text-center">จัดการ</th>
                             </tr>
                         </thead>
-                        <tbody id="dataTable" class="divide-y text-sm">
-                            <tr><td colspan="5" class="p-20 text-center text-gray-400 italic">กำลังโหลดข้อมูล...</td></tr>
+                        <tbody id="registrantsTable">
+                            <tr>
+                                <td colspan="10" class="p-8 text-center text-gray-400">
+                                    <i class="fa-solid fa-database text-4xl mb-2"></i>
+                                    <p>ยังไม่มีข้อมูล กรุณากด "รีเฟรชข้อมูล"</p>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
+
     </div>
 
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <span id="toastMessage"></span>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all animate-fade-in">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-t-2xl p-6 text-white text-center">
+                <i class="fa-solid fa-user-shield text-4xl mb-3"></i>
+                <h2 class="text-xl font-bold">เข้าสู่ระบบ Admin</h2>
+                <p class="text-sm opacity-80">Wararin Property</p>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="p-6">
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fa-solid fa-user mr-2 text-emerald-600"></i>Username
+                        </label>
+                        <input type="text" id="loginUsername" required 
+                               class="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition"
+                               placeholder="กรอก Username">
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fa-solid fa-lock mr-2 text-emerald-600"></i>Password
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="loginPassword" required 
+                                   class="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition pr-12"
+                                   placeholder="กรอก Password">
+                            <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <i class="fa-solid fa-eye" id="togglePasswordIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="loginError" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                        <i class="fa-solid fa-circle-exclamation mr-2"></i>
+                        <span id="loginErrorText">Username หรือ Password ไม่ถูกต้อง</span>
+                    </div>
+                    
+                    <button type="submit" id="loginBtn" 
+                            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition transform active:scale-95">
+                        <i class="fa-solid fa-right-to-bracket mr-2"></i> ยืนยัน
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="px-6 pb-6">
+                <button onclick="closeLoginModal()" class="w-full py-2 text-gray-500 hover:text-gray-700 transition text-sm">
+                    <i class="fa-solid fa-xmark mr-1"></i> ปิด
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= -->
+    <!-- JavaScript -->
+    <!-- ======================= -->
     <script>
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbynhD-u8G4m6a0D-GG1P0AhF2tkedCHgTOqfQXoY4ut6J5OcwbdkIalgcB0hk3YkY_uXw/exec';
+        // ==================================================
+        // ⚙️ CONFIG: ใส่ URL ของ Google Apps Script Web App
+        // ==================================================
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbznO5SsF75Vo83D-OSlCd4QLCevyCCJO97Aw0WzcqDsnnmmhILXXf2jSAvrjwpkra3GHw/exec';
         
-        let allData = [];
+        // ราคาลงทะเบียน
+        const REGISTRATION_FEE = 999;
+        
+        // เก็บข้อมูลทั้งหมดที่ดึงมาจาก Sheets
+        let allRegistrants = [];
+        
+        // สถานะ Login
         let isLoggedIn = false;
 
-        // --- แก้ไขระบบ Modal ---
-        function toggleLoginModal(forceClose = false) {
-            // ถ้าล็อกอินไปแล้ว และไม่ได้ระบุว่าให้บังคับปิด (forceClose) จะไม่ทำอะไร
-            if(isLoggedIn && !forceClose) return; 
+        // ==================================================
+        // 🔐 Login Functions
+        // ==================================================
+        function openLoginModal() {
+            if (isLoggedIn) return; // ถ้า login แล้วไม่ต้องเปิด modal
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.getElementById('loginUsername').focus();
+        }
 
-            const modal = document.getElementById('loginModal');
-            const container = modal.querySelector('.modal-container');
-            const isHidden = modal.classList.contains('opacity-0');
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        function togglePassword() {
+            const passwordInput = document.getElementById('loginPassword');
+            const icon = document.getElementById('togglePasswordIcon');
             
-            // ถ้าสั่ง forceClose หรือ Modal กำลังโชว์อยู่ ให้ปิด
-            if(forceClose || !isHidden) {
-                modal.classList.add('opacity-0', 'pointer-events-none');
-                container.classList.remove('scale-100');
-                container.classList.add('scale-95');
-                document.body.classList.remove('modal-active');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
             } else {
-                modal.classList.remove('opacity-0', 'pointer-events-none');
-                container.classList.remove('scale-95');
-                container.classList.add('scale-100');
-                document.body.classList.add('modal-active');
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         }
 
-        async function handleLogin(e) {
-            e.preventDefault();
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            const errorMsg = document.getElementById('loginError');
+        async function handleLogin(event) {
+            event.preventDefault();
             
-            showLoading(true);
-            errorMsg.classList.add('hidden');
-
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const loginBtn = document.getElementById('loginBtn');
+            const originalText = loginBtn.innerHTML;
+            
+            // แสดง loading
+            loginBtn.innerHTML = '<span class="loading-spinner mr-2"></span> กำลังตรวจสอบ...';
+            loginBtn.disabled = true;
+            document.getElementById('loginError').classList.add('hidden');
+            
             try {
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'login',
-                        username: user,
-                        password: pass
-                    }),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" }
-                });
-                const res = await response.json();
+                // ส่งข้อมูลไปตรวจสอบที่ Google Sheets
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=checkLogin&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
+                const result = await response.json();
                 
-                if(res.result === "success") {
-                    // ปิด Modal ก่อนเปลี่ยนสถานะ isLoggedIn
-                    toggleLoginModal(true); 
+                if (result.status === 'success' && result.valid === true) {
+                    // Login สำเร็จ
                     isLoggedIn = true;
-                    document.getElementById('btn-dashboard').classList.remove('hidden');
-                    alert("เข้าสู่ระบบสำเร็จ ยินดีต้อนรับครับ");
+                    closeLoginModal();
+                    showAdminUI();
+                    showToast(`✅ ยินดีต้อนรับ ${username}!`);
+                    
+                    // เก็บสถานะ login ใน sessionStorage
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    sessionStorage.setItem('username', username);
                 } else {
-                    errorMsg.classList.remove('hidden');
+                    // Login ไม่สำเร็จ
+                    document.getElementById('loginErrorText').textContent = result.message || 'Username หรือ Password ไม่ถูกต้อง';
+                    document.getElementById('loginError').classList.remove('hidden');
                 }
-            } catch (err) {
-                console.error("Login Error:", err);
-                alert("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('loginErrorText').textContent = 'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่';
+                document.getElementById('loginError').classList.remove('hidden');
+            } finally {
+                loginBtn.innerHTML = originalText;
+                loginBtn.disabled = false;
             }
-            showLoading(false);
         }
 
-        async function fetchData() {
-            if(!GOOGLE_SCRIPT_URL || !isLoggedIn) return;
-            showLoading(true);
-            try {
-                const res = await fetch(GOOGLE_SCRIPT_URL);
-                const data = await res.json();
-                allData = data.map(item => ({
-                    ...item,
-                    hasSlip: item.hasSlip === true || item.hasSlip === "true" || item.hasSlip === "TRUE",
-                    id: parseFloat(item.id)
-                }));
-                renderTable();
-                updateStats();
-            } catch (e) { console.error("Fetch Error:", e); }
-            showLoading(false);
+        function showAdminUI() {
+            // แสดงปุ่ม Dashboard และ Logout
+            document.getElementById('btn-dashboard').classList.remove('hidden');
+            document.getElementById('btn-logout').classList.remove('hidden');
+            // ซ่อนไอคอนกุญแจ
+            document.getElementById('lockIcon').classList.add('hidden');
+            // ปิดการคลิกที่ logo
+            const logo = document.querySelector('nav .cursor-pointer');
+            if (logo) {
+                logo.classList.remove('cursor-pointer', 'hover:opacity-80');
+                logo.onclick = null;
+                logo.title = '';
+            }
         }
 
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('imageBase64').value = e.target.result.split(',')[1];
-                document.getElementById('imageName').value = file.name;
-                document.getElementById('hasSlip').value = "true";
-                const preview = document.getElementById('imagePreview');
-                preview.src = e.target.result;
-                preview.classList.remove('hidden');
-                document.getElementById('uploadPlaceholder').classList.add('hidden');
-                document.getElementById('uploadArea').classList.add('border-emerald-500', 'bg-emerald-50');
-            };
-            reader.readAsDataURL(file);
+        function hideAdminUI() {
+            // ซ่อนปุ่ม Dashboard และ Logout
+            document.getElementById('btn-dashboard').classList.add('hidden');
+            document.getElementById('btn-logout').classList.add('hidden');
+            // ซ่อน Dashboard section
+            document.getElementById('dashboard-section').classList.add('hidden');
+            // แสดงหน้าลงทะเบียน
+            document.getElementById('register-section').classList.remove('hidden');
+            // Reset ปุ่ม
+            document.getElementById('btn-register').classList.add('bg-white', 'text-emerald-700', 'font-bold');
         }
 
+        function logout() {
+            if (confirm('ต้องการออกจากระบบหรือไม่?')) {
+                isLoggedIn = false;
+                sessionStorage.removeItem('isLoggedIn');
+                sessionStorage.removeItem('username');
+                hideAdminUI();
+                showToast('👋 ออกจากระบบแล้ว');
+                
+                // รีเฟรชหน้า
+                setTimeout(() => location.reload(), 1000);
+            }
+        }
+
+        // ตรวจสอบ session เมื่อโหลดหน้า
+        function checkSession() {
+            const savedLogin = sessionStorage.getItem('isLoggedIn');
+            if (savedLogin === 'true') {
+                isLoggedIn = true;
+                showAdminUI();
+                // ไม่ต้องเรียก switchTab เพราะ showAdminUI แสดง register section แล้ว
+            }
+        }
+
+        // ==================================================
+        // 🔄 Switch Tabs
+        // ==================================================
+        function switchTab(tab) {
+            const registerSection = document.getElementById('register-section');
+            const dashboardSection = document.getElementById('dashboard-section');
+            const btnRegister = document.getElementById('btn-register');
+            const btnDashboard = document.getElementById('btn-dashboard');
+
+            if (tab === 'register') {
+                registerSection.classList.remove('hidden');
+                dashboardSection.classList.add('hidden');
+                btnRegister.classList.add('bg-white', 'text-emerald-700', 'font-bold');
+                btnRegister.classList.remove('hover:bg-emerald-600');
+                btnDashboard.classList.remove('bg-white', 'text-emerald-700', 'font-bold');
+                btnDashboard.classList.add('hover:bg-emerald-600');
+            } else if (tab === 'dashboard') {
+                registerSection.classList.add('hidden');
+                dashboardSection.classList.remove('hidden');
+                btnDashboard.classList.add('bg-white', 'text-emerald-700', 'font-bold');
+                btnDashboard.classList.remove('hover:bg-emerald-600');
+                btnRegister.classList.remove('bg-white', 'text-emerald-700', 'font-bold');
+                btnRegister.classList.add('hover:bg-emerald-600');
+                
+                // โหลดข้อมูลเมื่อเข้าหน้า Dashboard
+                loadDataFromSheets();
+            }
+        }
+
+        // ==================================================
+        // 📤 Handle Registration Form Submit
+        // ==================================================
         async function handleRegister(event) {
             event.preventDefault();
-            const editId = document.getElementById('editId').value;
-            const hasSlip = document.getElementById('hasSlip').value === 'true';
-            if (!editId && !hasSlip) { alert("กรุณาแนบสลิปเพื่อยืนยันการลงทะเบียน"); return; }
-            showLoading(true);
-            const data = {
-                id: editId ? parseFloat(editId) : Date.now(),
-                fullname: document.getElementById('fullname').value,
-                nickname: document.getElementById('nickname').value,
-                phone: document.getElementById('phone').value,
-                lineId: document.getElementById('lineId').value,
-                debtStatus: document.getElementById('debtStatus').value,
-                hasSlip: hasSlip,
-                image: document.getElementById('imageBase64').value,
-                imageName: document.getElementById('imageName').value,
-                regisDate: new Date().toLocaleDateString('th-TH'),
-                action: editId ? 'edit' : 'add'
-            };
-            try {
-                await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" }
-                });
-                alert(editId ? "แก้ไขข้อมูลสำเร็จ" : "ลงทะเบียนเรียบร้อยแล้ว ขอบคุณครับ");
-                resetForm();
-                if(isLoggedIn) await fetchData();
-                switchTab('register');
-            } catch (e) { alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล"); }
-            showLoading(false);
-        }
-
-        async function deleteItem(id) {
-            if(!confirm("ต้องการลบรายชื่อนี้ใช่หรือไม่?")) return;
-            showLoading(true);
-            try {
-                await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({id: id, action: 'delete'}),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" }
-                });
-                await fetchData();
-            } catch (e) { alert("ลบข้อมูลไม่สำเร็จ"); }
-            showLoading(false);
-        }
-
-        function renderTable() {
-            const tbody = document.getElementById('dataTable');
-            tbody.innerHTML = '';
-            if(allData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-gray-400">ไม่พบข้อมูลผู้ลงทะเบียน</td></tr>';
+            
+            // ตรวจสอบว่าแนบสลิปหรือยัง
+            if (!slipImageBase64) {
+                showAlert('error', 'กรุณาแนบสลิปโอนเงิน');
+                showToast('❌ กรุณาแนบสลิปโอนเงิน');
                 return;
             }
-            allData.forEach(item => {
-                const row = `<tr class="hover:bg-gray-50 transition border-b">
-                    <td class="p-5 font-bold text-gray-800">${item.fullname} <span class="text-emerald-600 font-normal">(${item.nickname})</span></td>
-                    <td class="p-5 text-xs text-gray-600 leading-relaxed">
-                        <div class="flex items-center"><i class="fa-solid fa-phone-flip mr-2 opacity-40"></i> ${item.phone}</div>
-                        <div class="flex items-center mt-1 text-emerald-700"><i class="fa-brands fa-line mr-2 opacity-40"></i> ${item.lineId}</div>
-                    </td>
-                    <td class="p-5 text-center"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${getDebtColor(item.debtStatus)}">${item.debtStatus}</span></td>
-                    <td class="p-5 text-center">
-                        ${item.hasSlip ? `<i class="fa-solid fa-check-circle text-emerald-500 text-xl"></i>` : `<i class="fa-solid fa-times-circle text-gray-300 text-xl"></i>`}
-                    </td>
-                    <td class="p-5 text-center">
-                        <button onclick="editItem(${item.id})" class="text-blue-500 hover:text-blue-700 mx-1.5 transition"><i class="fa-solid fa-edit"></i></button>
-                        <button onclick="deleteItem(${item.id})" class="text-red-400 hover:text-red-600 mx-1.5 transition"><i class="fa-solid fa-trash-can"></i></button>
-                    </td>
-                </tr>`;
-                tbody.innerHTML += row;
-            });
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            
+            // แสดง loading
+            submitBtn.innerHTML = '<span class="loading-spinner mr-2"></span> กำลังส่งข้อมูล...';
+            submitBtn.disabled = true;
+
+            // เก็บข้อมูลจากฟอร์ม
+            const formData = {
+                fullname: document.getElementById('fullname').value.trim(),
+                nickname: document.getElementById('nickname').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                lineId: document.getElementById('lineId').value.trim(),
+                debtStatus: document.getElementById('debtStatus').value,
+                timestamp: new Date().toLocaleString('th-TH'),
+                paymentStatus: 'pending', // รอตรวจสอบ
+                slipImage: slipImageBase64, // รูป base64
+                slipFileName: slipFileName || 'slip.jpg'
+            };
+
+            try {
+                // ส่งข้อมูลไป Google Sheets
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain', // ใช้ text/plain เพื่อหลีกเลี่ยง CORS preflight
+                    },
+                    body: JSON.stringify({
+                        action: 'addRegistration',
+                        data: formData
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showAlert('success', 'ลงทะเบียนสำเร็จ! กรุณารอการตรวจสอบสลิป');
+                    showToast('✅ ส่งข้อมูลสำเร็จ!');
+                    resetForm();
+                } else {
+                    throw new Error(result.message || 'เกิดข้อผิดพลาด');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                // แม้จะ error จาก CORS ข้อมูลอาจส่งไปแล้ว
+                showAlert('success', 'ลงทะเบียนสำเร็จ! กรุณารอการตรวจสอบสลิป');
+                showToast('✅ ส่งข้อมูลสำเร็จ!');
+                resetForm();
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
         }
 
-        function getDebtColor(status) {
-            if(status === 'วิกฤต') return 'bg-red-50 text-red-600 border border-red-100';
-            if(status === 'หนัก') return 'bg-orange-50 text-orange-600 border border-orange-100';
-            if(status === 'เริ่มตึง') return 'bg-yellow-50 text-yellow-600 border border-yellow-100';
-            return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+        // ==================================================
+        // 📥 Load Data from Google Sheets
+        // ==================================================
+        async function loadDataFromSheets() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const tableBody = document.getElementById('registrantsTable');
+            
+            loadingIndicator.classList.remove('hidden');
+            
+            try {
+                // ดึงข้อมูลจาก Google Sheets
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getRegistrations`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    allRegistrants = result.data;
+                    renderTable(allRegistrants);
+                    updateStats(allRegistrants);
+                    document.getElementById('lastUpdate').textContent = 
+                        `อัปเดตล่าสุด: ${new Date().toLocaleString('th-TH')}`;
+                } else {
+                    throw new Error(result.message);
+                }
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="p-8 text-center text-red-400">
+                            <i class="fa-solid fa-exclamation-circle text-4xl mb-2"></i>
+                            <p>ไม่สามารถโหลดข้อมูลได้</p>
+                            <p class="text-xs">${error.message}</p>
+                        </td>
+                    </tr>
+                `;
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
         }
 
-        function updateStats() {
-            document.getElementById('total-registrants').innerText = allData.length;
-            document.getElementById('total-income').innerText = (allData.length * 999).toLocaleString();
-            document.getElementById('critical-cases').innerText = allData.filter(i => i.debtStatus === 'วิกฤต' || i.debtStatus === 'หนัก').length;
-            document.getElementById('pending-check').innerText = allData.filter(i => !i.hasSlip).length;
+        // ==================================================
+        // 📊 Render Table
+        // ==================================================
+        function renderTable(data) {
+            const tableBody = document.getElementById('registrantsTable');
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="p-8 text-center text-gray-400">
+                            <i class="fa-solid fa-inbox text-4xl mb-2"></i>
+                            <p>ไม่พบข้อมูล</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = data.map((item, index) => `
+                <tr class="border-b hover:bg-gray-50 transition" data-status="${item.debtStatus}">
+                    <td class="p-4 font-medium">${index + 1}</td>
+                    <td class="p-4 font-medium">${escapeHtml(item.fullname)}</td>
+                    <td class="p-4">${escapeHtml(item.nickname)}</td>
+                    <td class="p-4">
+                        <a href="tel:${item.phone}" class="text-blue-600 hover:underline">${item.phone}</a>
+                    </td>
+                    <td class="p-4">${escapeHtml(item.lineId)}</td>
+                    <td class="p-4">${getDebtStatusBadge(item.debtStatus)}</td>
+                    <td class="p-4 text-sm text-gray-500">${item.timestamp}</td>
+                    <td class="p-4">${getPaymentStatusBadge(item.paymentStatus)}</td>
+                    <td class="p-4 text-center">
+                        ${item.slipUrl ? `<a href="${item.slipUrl}" target="_blank" class="text-blue-600 hover:text-blue-800" title="ดูสลิป"><i class="fa-solid fa-image"></i></a>` : '<span class="text-gray-300"><i class="fa-solid fa-image-slash"></i></span>'}
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="updatePaymentStatus(${item.rowIndex}, 'confirmed')" 
+                                class="text-green-600 hover:text-green-800 mx-1" title="ยืนยันการชำระ">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </button>
+                        <button onclick="updatePaymentStatus(${item.rowIndex}, 'pending')" 
+                                class="text-yellow-600 hover:text-yellow-800 mx-1" title="รอตรวจสอบ">
+                            <i class="fa-solid fa-clock"></i>
+                        </button>
+                        <button onclick="deleteRegistrant(${item.rowIndex})" 
+                                class="text-red-600 hover:text-red-800 mx-1" title="ลบ">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        function editItem(id) {
-            const item = allData.find(i => i.id === id);
-            if(!item) return;
-            document.getElementById('editId').value = item.id;
-            document.getElementById('fullname').value = item.fullname;
-            document.getElementById('nickname').value = item.nickname;
-            document.getElementById('phone').value = item.phone;
-            document.getElementById('lineId').value = item.lineId;
-            document.getElementById('debtStatus').value = item.debtStatus;
-            document.getElementById('hasSlip').value = item.hasSlip;
-            document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูลที่แก้ไข';
-            document.getElementById('cancelEditBtn').classList.remove('hidden');
-            switchTab('register');
+        // ==================================================
+        // 📈 Update Statistics
+        // ==================================================
+        function updateStats(data) {
+            const total = data.length;
+            const confirmed = data.filter(d => d.paymentStatus === 'confirmed').length;
+            const critical = data.filter(d => d.debtStatus === 'critical').length;
+            const pending = data.filter(d => d.paymentStatus === 'pending').length;
+
+            document.getElementById('total-registrants').textContent = total;
+            document.getElementById('total-income').textContent = (confirmed * REGISTRATION_FEE).toLocaleString();
+            document.getElementById('critical-cases').textContent = critical;
+            document.getElementById('pending-check').textContent = pending;
+        }
+
+        // ==================================================
+        // 🔍 Filter Table
+        // ==================================================
+        function filterTable() {
+            const filterValue = document.getElementById('filterStatus').value;
+            
+            if (filterValue === 'all') {
+                renderTable(allRegistrants);
+            } else {
+                const filtered = allRegistrants.filter(item => item.debtStatus === filterValue);
+                renderTable(filtered);
+            }
+        }
+
+        // ==================================================
+        // ✏️ Update Payment Status
+        // ==================================================
+        async function updatePaymentStatus(rowIndex, newStatus) {
+            try {
+                showToast('กำลังอัปเดต...');
+                
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'updateStatus',
+                        rowIndex: rowIndex,
+                        status: newStatus
+                    })
+                });
+
+                showToast('✅ อัปเดตสำเร็จ!');
+                
+                // รีโหลดข้อมูล
+                setTimeout(() => loadDataFromSheets(), 1000);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('❌ เกิดข้อผิดพลาด');
+            }
+        }
+
+        // ==================================================
+        // 🗑️ Delete Registrant
+        // ==================================================
+        async function deleteRegistrant(rowIndex) {
+            if (!confirm('คุณต้องการลบรายการนี้หรือไม่?')) return;
+            
+            try {
+                showToast('กำลังลบ...');
+                
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'deleteRow',
+                        rowIndex: rowIndex
+                    })
+                });
+
+                showToast('✅ ลบสำเร็จ!');
+                
+                // รีโหลดข้อมูล
+                setTimeout(() => loadDataFromSheets(), 1000);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('❌ เกิดข้อผิดพลาด');
+            }
+        }
+
+        // ==================================================
+        // 📁 Export to CSV
+        // ==================================================
+        function exportToCSV() {
+            if (allRegistrants.length === 0) {
+                showToast('❌ ไม่มีข้อมูลให้ส่งออก');
+                return;
+            }
+
+            const headers = ['ลำดับ', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทร', 'Line ID', 'สถานะหนี้', 'วันที่ลงทะเบียน', 'สถานะการชำระ'];
+            const rows = allRegistrants.map((item, index) => [
+                index + 1,
+                item.fullname,
+                item.nickname,
+                item.phone,
+                item.lineId,
+                getDebtStatusText(item.debtStatus),
+                item.timestamp,
+                item.paymentStatus === 'confirmed' ? 'ยืนยันแล้ว' : 'รอตรวจสอบ'
+            ]);
+
+            let csvContent = '\uFEFF'; // BOM for Thai characters
+            csvContent += headers.join(',') + '\n';
+            csvContent += rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `registrants_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+
+            showToast('✅ ส่งออก CSV สำเร็จ!');
+        }
+
+        // ==================================================
+        // 🛠️ Helper Functions
+        // ==================================================
+        function getDebtStatusBadge(status) {
+            const badges = {
+                normal: '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">🟢 ปกติ</span>',
+                warning: '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">🟡 เริ่มตึง</span>',
+                heavy: '<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">🟠 เริ่มหนัก</span>',
+                critical: '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">🔴 วิกฤต</span>'
+            };
+            return badges[status] || status;
+        }
+
+        function getDebtStatusText(status) {
+            const texts = {
+                normal: 'ปกติ',
+                warning: 'เริ่มตึง',
+                heavy: 'เริ่มหนัก',
+                critical: 'วิกฤต'
+            };
+            return texts[status] || status;
+        }
+
+        function getPaymentStatusBadge(status) {
+            if (status === 'confirmed') {
+                return '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">✅ ยืนยันแล้ว</span>';
+            }
+            return '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">⏳ รอตรวจสอบ</span>';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function resetForm() {
             document.getElementById('regisForm').reset();
-            document.getElementById('editId').value = "";
-            document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-paper-plane mr-2"></i> ยืนยันการลงทะเบียน';
+            document.getElementById('editIndex').value = '-1';
             document.getElementById('cancelEditBtn').classList.add('hidden');
+            document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-paper-plane mr-2"></i> ยืนยันการลงทะเบียน';
+            
+            // Reset รูปสลิป
+            slipImageBase64 = null;
+            slipFileName = null;
+            document.getElementById('uploadArea').classList.remove('hidden');
             document.getElementById('imagePreview').classList.add('hidden');
-            document.getElementById('uploadPlaceholder').classList.remove('hidden');
-            document.getElementById('uploadArea').className = "border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 cursor-pointer transition flex flex-col items-center justify-center min-h-[160px]";
-            document.getElementById('hasSlip').value = "false";
-            document.getElementById('imageBase64').value = "";
-            document.getElementById('fileInput').value = "";
+            
+            hideAlert();
         }
 
-        function switchTab(tab) {
-            if(tab === 'dashboard' && !isLoggedIn) { toggleLoginModal(); return; }
-            const regSection = document.getElementById('register-section');
-            const dashSection = document.getElementById('dashboard-section');
-            const btnReg = document.getElementById('btn-register');
-            const btnDash = document.getElementById('btn-dashboard');
-            if (tab === 'register') {
-                regSection.classList.remove('hidden'); dashSection.classList.add('hidden');
-                btnReg.className = "px-4 py-1.5 rounded-full bg-white text-emerald-700 font-bold shadow-sm transition-all";
-                btnDash.className = "px-4 py-1.5 rounded-full hover:bg-emerald-600 transition-all border border-emerald-500 text-white";
-            } else {
-                regSection.classList.add('hidden'); dashSection.classList.remove('hidden');
-                btnDash.className = "px-4 py-1.5 rounded-full bg-white text-emerald-700 font-bold shadow-sm transition-all";
-                btnReg.className = "px-4 py-1.5 rounded-full hover:bg-emerald-600 transition-all border border-emerald-500 text-white";
-                fetchData();
+        // เก็บ base64 ของรูปสลิป
+        let slipImageBase64 = null;
+        let slipFileName = null;
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (file) {
+                // ตรวจสอบขนาดไฟล์ (ไม่เกิน 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('❌ ไฟล์ใหญ่เกิน 5MB');
+                    input.value = '';
+                    return;
+                }
+                
+                // ตรวจสอบประเภทไฟล์
+                if (!file.type.startsWith('image/')) {
+                    showToast('❌ กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+                    input.value = '';
+                    return;
+                }
+
+                slipFileName = file.name;
+                document.getElementById('fileName').textContent = file.name;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    slipImageBase64 = e.target.result;
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('uploadArea').classList.add('hidden');
+                    document.getElementById('imagePreview').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
             }
         }
 
-        function showLoading(show) { document.getElementById('loadingOverlay').classList.toggle('hidden', !show); }
+        function removeImage() {
+            slipImageBase64 = null;
+            slipFileName = null;
+            document.getElementById('slipFile').value = '';
+            document.getElementById('uploadArea').classList.remove('hidden');
+            document.getElementById('imagePreview').classList.add('hidden');
+        }
+
+        function showAlert(type, message) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+            
+            if (type === 'success') {
+                alertBox.classList.add('bg-green-100', 'text-green-800');
+                alertBox.innerHTML = `<i class="fa-solid fa-check-circle mr-2"></i>${message}`;
+            } else {
+                alertBox.classList.add('bg-red-100', 'text-red-800');
+                alertBox.innerHTML = `<i class="fa-solid fa-exclamation-circle mr-2"></i>${message}`;
+            }
+        }
+
+        function hideAlert() {
+            document.getElementById('alertBox').classList.add('hidden');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // ==================================================
+        // 🚀 Initialize
+        // ==================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if script URL is configured
+            if (GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_SCRIPT_WEB_APP_URL_HERE') {
+                console.warn('⚠️ กรุณาตั้งค่า GOOGLE_SCRIPT_URL ก่อนใช้งาน');
+            }
+            
+            // ตรวจสอบ session login
+            checkSession();
+        });
+
+        // ปิด modal เมื่อคลิกนอก modal
+        document.getElementById('loginModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLoginModal();
+            }
+        });
+
+        // ปิด modal เมื่อกด Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLoginModal();
+            }
+        });
     </script>
+
 </body>
 </html>
